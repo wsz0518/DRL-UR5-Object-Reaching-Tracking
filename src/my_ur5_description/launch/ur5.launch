@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+
+<launch>
+
+  <include file="$(find my_ur5_description)/launch/start_world.launch"/>
+  <!-- <include file="$(find my_ur5_description)/launch/conveyor_gym.launch"/> -->
+  <include file="$(find my_ur5_description)/launch/put_robot_in_world.launch"/>
+
+  <!-- <rosparam file="$(find robotiq_2f_85_gripper_gazebo)/config/gazebo_controller.yaml" command="load" /> -->
+  
+</launch>

@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+       name="ur5" >
+
+  <!-- common stuff -->
+  <xacro:include filename="$(find my_ur5_description)/robots/common.gazebo.xacro" />
+
+  <!-- ur5 -->
+  <xacro:include filename="$(find my_ur5_description)/robots/ur5.urdf_camera.xacro" />
+
+  <!-- robotiq gripper —————————————————————————————————————————————————————————————— -->
+  <!-- parameters -->
+  <xacro:arg name="transmission_hw_interface" default="hardware_interface/PositionJointInterface"/>
+  <!-- <xacro:arg name="transmission_hw_interface" default="hardware_interface/EffortJointInterface"/> -->
+
+  <!-- 继承robotiq_arg2f_85宏-->
+  <xacro:include filename="$(find robotiq_2f_85_gripper_gazebo)/urdf/robotiq_arg2f_85_macro.xacro"/>
+  <!-- 定义fixed关节，将robotiq_arg2f_base_link连接到机械臂末端的tool0-->
+  <joint name="ur_robotiq_joint" type="fixed">
+    <parent link="tool0"/>
+    <child link="robotiq_arg2f_base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+  
+  <!-- 调用robotiq_arg2f_85，加入夹爪的link和joint-->
+  <xacro:robotiq_arg2f_85_gazebo prefix="" transmission_hw_interface="$(arg transmission_hw_interface)"/>
+  <!-- —————————————————————————————————————————————————————————————————————————————— -->
+  
+  <!-- robotiq gzplugin stable while grasping-->
+  <!--<xacro:include filename="$(find my_ur_description)/robots/gzplugin_grasp_fix.urdf.xacro"/>
+  <xacro:gzplugin_grasp_fix/> -->
+
+  <!-- arm -->
+  <xacro:ur5 prefix="" joint_limited="false"/>
+  
+  <link name="world" />
+
+  <joint name="world_joint" type="fixed">
+    <parent link="world" />
+    <child link = "base_link" />
+    <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+  </joint>
+
+</robot>

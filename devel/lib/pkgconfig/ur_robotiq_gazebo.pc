@@ -1,0 +1,8 @@
+prefix=/home/sizhewin/drl_obj_reaching_tracking/devel
+
+Name: ur_robotiq_gazebo
+Description: Description of ur_robotiq_gazebo
+Version: 1.2.1
+Cflags: 
+Libs: -L${prefix}/lib -lblocks_poses_publisher
+Requires: ur_rl_msgs roscpp std_msgs

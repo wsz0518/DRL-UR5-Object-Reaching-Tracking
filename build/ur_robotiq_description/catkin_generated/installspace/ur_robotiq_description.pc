@@ -1,0 +1,8 @@
+prefix=/home/sizhewin/drl_obj_reaching_tracking/install
+
+Name: ur_robotiq_description
+Description: Description of ur_robotiq_description
+Version: 1.2.1
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

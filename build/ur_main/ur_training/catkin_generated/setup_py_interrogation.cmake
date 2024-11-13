@@ -1,0 +1,7 @@
+set(ur_training_SETUP_PY_SETUP_MODULE "distutils.core")
+set(ur_training_SETUP_PY_VERSION "0.0.0")
+set(ur_training_SETUP_PY_SCRIPTS "")
+set(ur_training_SETUP_PY_PACKAGES "ur_training")
+set(ur_training_SETUP_PY_PACKAGE_DIRS "script/ur_training")
+set(ur_training_SETUP_PY_MODULES "")
+set(ur_training_SETUP_PY_MODULE_DIRS "")

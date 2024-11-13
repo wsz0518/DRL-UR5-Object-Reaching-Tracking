@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+
+  <!-- This version uses the openai_ros environments -->
+  <rosparam command="load" file="$(find ur_reaching)/config/ur5_train_params.yaml" />
+  <!-- Launch the training system -->
+  <node pkg="ur_reaching" name="ur5_ddqn" type="start_training_ddqn_ur5.py" output="screen"/>
+
+</launch>

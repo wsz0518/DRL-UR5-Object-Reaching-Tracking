@@ -1,0 +1,8 @@
+prefix=/home/sizhewin/drl_obj_reaching_tracking/install
+
+Name: robotiq_3f_gripper_articulated_msgs
+Description: Description of robotiq_3f_gripper_articulated_msgs
+Version: 1.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime std_msgs

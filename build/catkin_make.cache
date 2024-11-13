@@ -1,0 +1,2 @@
+kinect_v2_description/kinect_v2:my_ur5_description:openai_ros/openai_ros:robotiq/robotiq:robotiq/robotiq_2f_85_gripper_gazebo:robotiq/robotiq_2f_85_gripper_visualization:robotiq_85_description:ur_description:ur_main/ur_reaching:ur_main/ur_tracking:ur_rl_msgs:ur_robotiq_description:ur_robotiq_gazebo
+-DCATKIN_DEVEL_PREFIX=/home/sizhewin/drl_obj_reaching_tracking/devel -DCMAKE_INSTALL_PREFIX=/home/sizhewin/drl_obj_reaching_tracking/install -G Unix Makefiles

@@ -1,0 +1,58 @@
+ur5:
+  # Publish all joint states
+  joint_state_controller:
+    type: joint_state_controller/JointStateController
+    publish_rate: 50
+  # Position Controllers
+  shoulder_pan_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: shoulder_pan_joint
+    pid: {p: 2000.0, i: 0.0, d: 10.0}
+    # Original {p: 2000.0, i: 0.0, d: 5.0}
+
+  shoulder_lift_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: shoulder_lift_joint
+    pid: {p: 10000.0, i: 0.0, d: 100.0}
+    # Original {p: 10000.0, i: 0.0, d: 100.0}
+
+  elbow_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: elbow_joint
+    pid: {p: 5000.0, i: 0.0, d: 2.0}
+    # Original {p: 6000.0, i: 0.0, d: 2.0}, good {p: 5000.0, i: 0.0, d: 10.0}
+
+  wrist_1_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: wrist_1_joint
+    pid: {p: 100.0, i: 0.0, d: 2.0}
+    # Original {p: 100.0, i: 0.0, d: 0.0}
+
+  wrist_2_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: wrist_2_joint
+    pid: {p: 100.0, i: 0.0, d: 1.0}
+    # Original {p: 100.0, i: 0.0, d: 1.0}
+
+  wrist_3_joint_position_controller:
+    type: effort_controllers/JointPositionController
+    joint: wrist_3_joint
+    pid: {p: 100.0, i: 0.0, d: 1.0}
+    # Original {p: 100.0, i: 0.0, d: 1.0}
+
+  gripper_controller:
+    type: position_controllers/JointTrajectoryController
+    gains:
+      finger_joint: {p: 100,  d: 0.1, i: 0.0, i_clamp: 1}
+    joints:
+        - finger_joint
+    action_monitor_rate: 20
+    goal_tolerance: 0.002
+    max_effort: 100
+    stall_velocity_threshold: 0.001
+    stall_timeout: 1.0
+
+  # gripper_controller:
+  #   type: position_controllers/JointPositionController
+  #   joint: finger_joint
+  #   pid: {p: 100,  d: 0.1, i: 0.0} # {p: 50,  d: 0.1, i: 1.0}

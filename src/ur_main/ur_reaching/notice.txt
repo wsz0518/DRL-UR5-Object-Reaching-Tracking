@@ -1,0 +1,59 @@
+基于深度强化学习与工人偏好性优化的机械臂自主定位拾取研究
+22.03
+change _compute_reward(), for bad action no rewards
+provide utils
+know about Q_value
+problem: state always new. because of angles are not precise same.
+    way: round the values
+
+24.03
+state rounded, got a simple won example for: epsilon: 0.98;
+                                             alpha: 0.6;
+                                             gamma: 0.95;
+                                             tolerance: 0.2;
+                                             estimating: -1.0;
+                                             pose_delta: 0.1;
+                                             state round: 1f;
+change for unreached:
+    wait_for_completion in ur5_env,
+    move functions in ur5_env,
+    _set_action in ur5_position_task,
+    _is_done in robot_gazebo_env,
+    step: _compute_reward in robot_gazebo_env,
+    _compute_reward in ur5_position_task,
+    _set_init_pose in ur5_position_task
+then try to record a video: epsilon: 0.9;
+                            epsilon_discount: 0.9;
+                            activation for epsilon:0.02;
+                            alpha: 0.6;
+                            gamma: 0.95;
+                            tolerance: 0.1;
+                            estimating: -10, moved: -100, win: +100
+25.04
+self.current_iteration += 1 in ur5_position_task only for not done
+--Video1: epsilon=0.5,ed=0.9,grenz=0.02,pose_delta=0.1,tolerance=0.1,round=1f
+--Video2: epsilon=0.5,ed=0.97,grenz=0.05,pose_delta=0.05,tolerance=0.05,round=05,badact=-score   (0.5x0.95^60=0.023)
+
+01.05
+new ros, sudo apt-get install ros-melodic-effort-controllers needed.
+Monitor: monitor.py->_del_->pass
+
+21.05
+at 0.052 it has always 8->9->8, can't find 10/11 to get closer, reward1.8, -0.5
+TRY: before 0.1: using 6 actions, than 12 actions
+
+23.05
+I wanted to switched the task goal from angles of 6 joints to the actual 3D-coordinate of the endeffector. 
+(i think it's much more meaningful than to train ur5 to get a given pose, which is basic function of moveIt...)
+I have done adding this task mode, it can work now. The main problem now is the precision.
+
+First is tolerance. It might be hard that let the Endeffector reach the exact goal coordinate in Gazebo with steps of changing joint angle.
+So i'd like to set tolerance. The question is can i set the tolerance as Euclid distance between Endeffector and goal for 0.1m or 0.05m?
+
+The next if we set 6 joints as states 12 actions for Q, the statespace and Q-table is super larger than the Cart-Pole, training is costly.
+(at episode begin, action of wrists does almost no effect for approaching but expands statespace). So i redefine the chooseAction function: 
+-- if ur5 is faraway from the goal, it chooses only actions of pan, shoulder, elbow.
+-- If closer (threshold: 0.15m to goal), it chooses only 6 actions of 3 wrists. 
+The question is to use which threshold with respect to tolerance. Or should i get the coordinate of wrist1?
+
+ADD: export PYTHONPATH=~/drl_obj_reaching_tracking/src/ur_main/ur_reaching/src/openai_ros:$PYTHONPATH

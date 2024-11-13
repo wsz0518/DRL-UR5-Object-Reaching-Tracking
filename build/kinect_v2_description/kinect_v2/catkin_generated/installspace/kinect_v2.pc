@@ -1,0 +1,8 @@
+prefix=/home/sizhewin/drl_obj_reaching_tracking/install
+
+Name: kinect_v2
+Description: Description of kinect_v2
+Version: 1.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

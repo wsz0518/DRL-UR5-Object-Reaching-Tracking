@@ -1,0 +1,3 @@
+robotiq_85_gripper:
+  finger_joint_open: 0.0
+  finger_joint_close: 0.8

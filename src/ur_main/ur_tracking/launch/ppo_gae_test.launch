@@ -1,0 +1,6 @@
+<launch>
+    
+    <!-- Launch the training system -->
+    <node pkg="ur_tracking" name="ppo_gae" type="ppo_gae_test.py" output="screen"/>
+
+</launch>

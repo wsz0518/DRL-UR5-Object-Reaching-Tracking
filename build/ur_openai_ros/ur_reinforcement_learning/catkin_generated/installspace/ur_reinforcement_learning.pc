@@ -1,0 +1,8 @@
+prefix=/home/sizhewin/drl_obj_reaching_tracking/install
+
+Name: ur_reinforcement_learning
+Description: Description of ur_reinforcement_learning
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

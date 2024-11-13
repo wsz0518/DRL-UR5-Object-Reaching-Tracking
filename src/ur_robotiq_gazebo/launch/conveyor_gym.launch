@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<launch>
+  <!-- args -->
+  <arg name="robot" default="ur5"/>
+  <arg name="debug" default="false"/>
+  <arg name="gui" default="true"/>
+  <arg name="headless" default="false"/>
+  <arg name="pause" default="false"/>  <!-- Start Gazebo with a blank world -->
+  <arg name="controller" default="vel"/> <!-- 'pos' or 'traj_vel' or 'pos' or 'traj_pos'-->
+
+  <!-- Object pose -->
+  <arg name="x" default="0"/>
+  <arg name="y" default="0"/>
+  <arg name="z" default="0."/>
+  <arg name="roll" default="0"/>
+  <arg name="pitch" default="0"/>
+  <arg name="yaw" default="0"/>
+   
+  <!-- startup simulated world -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch">
+    <arg name="world_name" default="$(find ur_robotiq_gazebo)/worlds/demo.world"/>
+    <arg name="debug" value="$(arg debug)" />
+    <arg name="gui" value="$(arg gui)" />
+    <arg name="paused" value="$(arg pause)"/>
+    <arg name="use_sim_time" value="true"/>
+    <arg name="headless" value="$(arg headless)"/>
+  </include>
+
+  <param name="red_box_path" type="str" value="$(find ur_robotiq_gazebo)/urdf/red_box.urdf"/>
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_robotiq_description)/urdf/ur_robotiq-vel.urdf.xacro'" if="$(eval controller == 'traj_vel')"/>
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_robotiq_description)/urdf/ur_robotiq-vel.urdf.xacro'" if="$(eval controller == 'vel')"/>
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_robotiq_description)/urdf/ur_robotiq.urdf.xacro'" if="$(eval controller == 'pos')"/>
+  <param name="robot_description" command="$(find xacro)/xacro '$(find ur_robotiq_description)/urdf/ur_robotiq.urdf.xacro'" if="$(eval controller == 'traj_pos')"/>
+
+  <!-- Add kinect-v2 -->
+  <param name="camera_description" command="$(find xacro)/xacro '$(find kinect_v2)/urdf/kinect_v2_standalong.urdf.xacro'"/>
+  <node name="spawn_camera_model" pkg="gazebo_ros" type="spawn_model" respawn="false" output="screen" 
+    args="-urdf -model dhrobot -param camera_description -x 0.0 -y -1.0 -z 1.2"/>
+  
+  <!-- Push robot_description to factory and spawn robot in gazebo -->
+  <node name="spawn_gazebo_model" pkg="gazebo_ros" type="spawn_model" args="-urdf -param robot_description -model robot -y 0 -z 0" respawn="false" output="screen" />
+  <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher">
+    <param name="publish_frequency" type="double" value="50.0" />
+    <param name="tf_prefix" type="string" value="" />
+  </node>
+
+  <!-- Load models for objects in environment -->
+  <!-->node name="spawn_dropbox" pkg="gazebo_ros" type="spawn_model"
+      args="-file $(find ur_robotiq_gazebo)/worlds/dropbox.sdf
+                    -sdf -x $(arg x) -z $(arg z) -gazebo -model dropbox"/>
+  <node name="spawn_dropbox_clone" pkg="gazebo_ros" type="spawn_model"
+      args="-file $(find ur_robotiq_gazebo)/worlds/dropbox_clone.sdf
+                    -sdf -x $(arg x) -z $(arg z) -gazebo -model dropbox_clone"/>
+  <node name="spawn_short_table" pkg="gazebo_ros" type="spawn_model"
+      args="-file $(find ur_robotiq_gazebo)/worlds/short_table.sdf
+                    -sdf -x $(arg x) -z $(arg z) -gazebo -model short_table"/>
+  <node name="spawn_short_table_clone" pkg="gazebo_ros" type="spawn_model"
+      args="-file $(find ur_robotiq_gazebo)/worlds/short_table_clone.sdf
+                    -sdf -x $(arg x) -z $(arg z) -gazebo -model short_table_clone"/-->
+
+  <!-- Load controllers -->
+  <rosparam file="$(find ur_robotiq_gazebo)/controller/joint_state_controller.yaml" command="load"/> 
+  <rosparam file="$(find ur_robotiq_gazebo)/controller/gazebo_ros_control_params.yaml" command="load"/>
+  <rosparam file="$(find ur_robotiq_gazebo)/controller/arm_controller.yaml" command="load"/>
+
+  <!-- Load each velocity controllers for UR5 joints-->  
+  <node name="vel_controller_spawner" pkg="controller_manager" type="controller_manager" 
+    args="spawn ur_shoulder_pan_vel_controller ur_shoulder_lift_vel_controller ur_elbow_vel_controller ur_wrist_1_vel_controller ur_wrist_2_vel_controller ur_wrist_3_vel_controller gripper_controller" respawn="false" output="screen" 
+    if="$(eval controller == 'vel')" />
+  
+  <!-- Load each position controllers for UR5 joints-->  
+  <node name="pos_controller_spawner" pkg="controller_manager" type="controller_manager" 
+    args="spawn ur_shoulder_pan_pos_controller ur_shoulder_lift_pos_controller ur_elbow_pos_controller ur_wrist_1_pos_controller ur_wrist_2_pos_controller ur_wrist_3_pos_controller gripper_controller" respawn="false" output="screen" 
+    if="$(eval controller == 'pos')" />
+  
+  <!-- Spawn the conveyor_belt and bin in gazebo -->
+  <node name="spawn_conveyor_belt" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_robotiq_gazebo)/urdf/conveyor_belt.urdf -urdf -model conveyor_belt -x 0.0 -y -1.0 -z 0" respawn="false"/>
+  <!-- <node name="spawn_bin" pkg="gazebo_ros" type="spawn_model" args="-file $(find ur_robotiq_gazebo)/urdf/bin.urdf -urdf -model bin -x -0.5 -y -0.2 -z 0.05" respawn="false"/> -->
+
+  <!-- Spawn red blocks spawner node -->
+  <node name="block_spawner" pkg="ur_robotiq_gazebo" type="block_spawner" output="screen" respawn="false"/>
+
+  <!-- the block's poses publisher node -->
+  <node name="block_pose_publisher" pkg="ur_robotiq_gazebo" type="block_pose_publisher" output="screen" respawn="false"/>
+
+  <!-- Reaching params -->
+  <rosparam command="load" file="$(find ur_tracking)/config/training_params.yaml" />
+  <!-- Training help func on GAZEBO -->
+  <include file="$(find ur_tracking)/launch/gazebo_execution.launch" />
+
+</launch>

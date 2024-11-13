@@ -1,0 +1,7 @@
+set(ur_reinforcement_learning_SETUP_PY_SETUP_MODULE "distutils.core")
+set(ur_reinforcement_learning_SETUP_PY_VERSION "0.0.0")
+set(ur_reinforcement_learning_SETUP_PY_SCRIPTS "")
+set(ur_reinforcement_learning_SETUP_PY_PACKAGES "ur_reinforcement_learning")
+set(ur_reinforcement_learning_SETUP_PY_PACKAGE_DIRS "script/ur_reinforcement_learning")
+set(ur_reinforcement_learning_SETUP_PY_MODULES "")
+set(ur_reinforcement_learning_SETUP_PY_MODULE_DIRS "")

@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./ur_main/ur_reaching/src/openai_ros"
+    ]
+}

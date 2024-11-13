@@ -1,0 +1,7 @@
+set(ur_reaching_SETUP_PY_SETUP_MODULE "distutils.core")
+set(ur_reaching_SETUP_PY_VERSION "0.0.0")
+set(ur_reaching_SETUP_PY_SCRIPTS "")
+set(ur_reaching_SETUP_PY_PACKAGES "ur_reaching")
+set(ur_reaching_SETUP_PY_PACKAGE_DIRS "script/ur_reaching")
+set(ur_reaching_SETUP_PY_MODULES "")
+set(ur_reaching_SETUP_PY_MODULE_DIRS "")

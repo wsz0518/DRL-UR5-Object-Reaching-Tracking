@@ -1,0 +1,7 @@
+set(openai_ros_SETUP_PY_SETUP_MODULE "distutils.core")
+set(openai_ros_SETUP_PY_VERSION "1.0.0")
+set(openai_ros_SETUP_PY_SCRIPTS "")
+set(openai_ros_SETUP_PY_PACKAGES "openai_ros")
+set(openai_ros_SETUP_PY_PACKAGE_DIRS "src/openai_ros")
+set(openai_ros_SETUP_PY_MODULES "")
+set(openai_ros_SETUP_PY_MODULE_DIRS "")

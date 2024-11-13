@@ -1,0 +1,42 @@
+ur5: #namespace
+  task_and_robot_environment_name: 'Ur5Position-v0'
+  ros_ws_abspath: "/home/sizhewin/drl_obj_reaching_tracking"
+  wrapper_results_path: '/home/sizhewin/drl_obj_reaching_tracking/src/ur_main/ur_reaching/training_results'
+
+  # epsilon computation: eps * eps_disc^nepi
+
+  qlearn:
+    alpha: 0.6  # Original 0.5 # Learning rate, q-values updated
+    gamma: 0.9  # Original 0.9 # discount factor, future rewards worth less
+    epsilon: 0.5 # Original 0.1
+    epsilon_discount: 0.99 # Original 0.999
+    nepisodes: 200 # Original 10000
+    nsteps: 100 # max_iterations=40 (in ur5_position_task.yaml)
+    round_format: '1f' # '1f', '2f', '05'
+  ## using -score for bad, -100 for unreach
+
+  dqn:
+    num_states: 6 # 6 joint pose
+    num_mid: 128 # Original 64 hidden layer width
+    num_actions: 6                                        # two phases with same Q numbers
+    gamma: 0.8 # Original 0.7
+    epsilon: 0.5 # Original 1.0
+    ed: 0.997 # Original 0.99
+    eb: 0.1 # Original 0.1
+    lr: 0.001 # Original 0.001
+    nepisodes: 300
+    nsteps: 150 # max_iterations=30 (in ur5_position_task.yaml)
+    round_format: '1f' # '1f', '2f', '05'
+  # ###achiv1:
+  # num_states: 3 # num_mid: 64 # gamma: 0.70 # epsilon: 1.0 # ed: 0.98 # eb: 0.05 # lr: 0.001 # nsteps: 50 # round_format: '1f'
+
+  ddqn:
+    num_states: 6 # 6 joint pose
+    num_mid: 32 # Original 32 hidden layer width
+    gamma: 0.99 # Original 0.7
+    batch_size: 32  # Original 32
+    lr: 0.0001 # Original 0.0001
+    capacity: 10000
+    nepisodes: 2
+    nsteps: 100 # max_iterations=30 (in ur5_position_task.yaml)
+    round_format: '1f' # '1f', '2f', '05'

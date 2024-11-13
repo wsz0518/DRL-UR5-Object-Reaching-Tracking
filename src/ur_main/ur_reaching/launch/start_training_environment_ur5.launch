@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<launch>
+
+  <!-- This version uses the openai_ros environments -->
+  <rosparam command="load" file="$(find ur_reaching)/config/ur5_train_params.yaml" />
+
+  <rosparam file="$(find robotiq_2f_85_gripper_gazebo)/config/gazebo_controller.yaml" command="load" />
+
+  <!-- Launch the training system -->
+  <node pkg="ur_reaching" name="ur5_enviro" type="start_training_environment_ur5.py" output="screen"/>
+
+</launch>

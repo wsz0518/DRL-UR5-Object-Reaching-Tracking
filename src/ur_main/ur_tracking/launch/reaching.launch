@@ -1,0 +1,6 @@
+<launch>
+   <arg name="controller" default="vel"/> <!-- 'vel' or 'traj_vel'-->
+
+    <!-- Launch the training system -->
+    <node pkg="ur_tracking" name="ur_tracking" type="reaching_main.py" output="screen" args="$(arg controller)"/>
+</launch>

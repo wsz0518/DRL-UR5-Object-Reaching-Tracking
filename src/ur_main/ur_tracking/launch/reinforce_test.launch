@@ -1,0 +1,5 @@
+<launch>
+    <!-- Launch the training system -->
+    <node pkg="ur_tracking" name="reinforcem" type="reinforce_test.py" output="screen"/>
+
+</launch>

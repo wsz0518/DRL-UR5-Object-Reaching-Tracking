@@ -1,0 +1,37 @@
+ur5: #namespace
+
+    # Task Realated parameters
+    n_actions: 12 # shoulder_pan_joint+/-,shoulder_lift_joint+/-,elbow_joint+/-,3 wrist_joint+/-
+    n_observations: 6
+
+    max_iterations: 80  # Original 40
+
+    init_pos:  # Original all 0.0
+      shoulder_pan_joint: 1.57
+      shoulder_lift_joint: -1.57
+      elbow_joint: 1.57
+      wrist_1_joint: -1.57
+      wrist_2_joint: -1.57
+      wrist_3_joint: -1.57
+
+    goal_pos:                      # Original
+      shoulder_pan_joint: 1.2      # 1.2
+      shoulder_lift_joint: -1.0    # -0.475
+      elbow_joint: 1.9             # 1.12
+      wrist_1_joint: 0.3
+      wrist_2_joint: -0.3
+      wrist_3_joint: -0.1
+    
+    goal_coord: [0.0, 0.6, 0.2] # [0.03, 0.6, 0.06]
+
+                         # Original 0.10. -.05 for fine Pose
+    position_delta: 0.1  # Increments/Decrements in the positions each action step
+
+    check_move: True
+    non_movement_penalty: -50
+    non_movement_done: True
+
+    # position_delta_large: 0.6
+    # position_delta_tiny: 0.1
+
+    reached_goal_reward: 200
