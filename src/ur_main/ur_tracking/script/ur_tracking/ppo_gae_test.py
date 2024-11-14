@@ -36,8 +36,8 @@ def test():
         
     tester = PPOGAEAgent(obs_dim, n_act, epochs=10, hdim=16, policy_lr=3e-3, value_lr=1e-3, max_std=1.0,
                             clip_range=0.2, seed=seed)
-    tester.load_model(policy_weights_path='{}/models/model_z02_-01/trained_policy_network_weights.h5'.format(ws_path),
-                        value_weights_path='{}/models/model_z03/trained_value_network_weights.h5'.format(ws_path))
+    tester.load_model(policy_weights_path='{}/models/model_z02_005/trained_policy_network_weights.h5'.format(ws_path),
+                        value_weights_path='{}/models/model_z02_005/trained_value_network_weights.h5'.format(ws_path))
     run_test(env, tester)
 
 if __name__ == '__main__':

@@ -190,9 +190,9 @@ def main():
     entropy_list = []
 
 
-    episode_size = 10 # 10
+    episode_size = 5 # 10
     batch_size = 16
-    nupdates = 20 # 500
+    nupdates = 50 # 500
 
     # save fig
     x_data = []

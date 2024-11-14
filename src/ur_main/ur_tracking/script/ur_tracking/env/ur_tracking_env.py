@@ -77,9 +77,6 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         
         # Tracking distance in z
         self.z_dist = rospy.get_param("z_dist")
-
-        # Something for results
-        self.count_reset = 0
         
         # Joint Velocity limitation
         shp_vel_max = rospy.get_param("/joint_velocity_limits_array/shp_max")
@@ -617,7 +614,6 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         observation = self.get_observations()
         
         self.reset_precessing = True
-        self.count_reset += 1
         return observation
        
     def step(self, action):
@@ -685,13 +681,13 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         progress = self.prev_distance - self.distance
 
         if self.end_effector.z - self.target_point.z < 0.1:
-            rospy.logwarn("xxxEnd effector is too low xxx")
+            rospy.logwarn("xxx End effector is too low xxx")
             reward = -10.0
         else:
-            if self.distance < 0.1:
+            if self.distance < 0.05:
                 rospy.logerr("***End effector is tracking target now***")
                 if progress > 0.0:
-                    reward = 50.0
+                    reward = 100.0
                 else:
                     reward = -np.exp(self.distance)
             else:
@@ -719,6 +715,3 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
             done = True
         
         return reward, done
-
-    def print_resets(self):
-        rospy.logerr("Total Resets : " + self.count_reset)
