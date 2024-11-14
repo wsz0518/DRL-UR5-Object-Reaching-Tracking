@@ -61,12 +61,12 @@ Tracking tasks are using REINFORCE and PPO-GAE algorithms.
 #### Then, launch the chosen training process in another Terminal:
   - for REINFORCE:
     ```
-    roslaunch ur_tracking ppo_gae_main.launch
+    roslaunch ur_tracking reinforce_main.launch
     ```
 
   - for PPO-GAE:
     ```
-    roslaunch ur_tracking reinforce_main.launch
+    roslaunch ur_tracking ppo_gae_main.launch
     ```
 
 #### After launching, unpause the Gazebo to start Training:
