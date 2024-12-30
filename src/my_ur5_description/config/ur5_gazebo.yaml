@@ -31,13 +31,13 @@ ur5:
   wrist_2_joint_position_controller:
     type: effort_controllers/JointPositionController
     joint: wrist_2_joint
-    pid: {p: 100.0, i: 0.0, d: 1.0}
+    pid: {p: 100.0, i: 0.0, d: 0.5}
     # Original {p: 100.0, i: 0.0, d: 1.0}
 
   wrist_3_joint_position_controller:
     type: effort_controllers/JointPositionController
     joint: wrist_3_joint
-    pid: {p: 100.0, i: 0.0, d: 1.0}
+    pid: {p: 100.0, i: 0.0, d: 0.5}
     # Original {p: 100.0, i: 0.0, d: 1.0}
 
   gripper_controller:

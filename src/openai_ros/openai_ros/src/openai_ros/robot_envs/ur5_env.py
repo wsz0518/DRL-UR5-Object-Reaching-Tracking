@@ -121,7 +121,7 @@ class UR5Env(robot_gazebo_env.RobotGazeboEnv):
 
         while (self._shoulder_pan.get_num_connections() == 0 \
                and not rospy.is_shutdown()):
-            rospy.logerr(
+            rospy.logdebug(
                 "No susbribers to _shoulder_pan yet so we wait and try again")
             try:
                 self.rate.sleep()
@@ -175,14 +175,14 @@ class UR5Env(robot_gazebo_env.RobotGazeboEnv):
         
         while (self._gripper.get_num_connections() == 0 \
                and not rospy.is_shutdown()):
-            rospy.logwarn(
+            rospy.logdebug(
                 "No susbribers to _gripper yet so we wait and try again")
             try:
                 self.rate.sleep()
             except rospy.ROSInterruptException:
                 pass
 
-        rospy.logdebug("All publishers are ready")
+        rospy.logwarn("All publishers are ready")
 
     def _check_all_systems_ready(self, init=True):
 

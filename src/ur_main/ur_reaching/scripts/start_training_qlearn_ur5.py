@@ -10,10 +10,12 @@ import rospy
 import rospkg
 from openai_ros.openai_ros_common import StartOpenAI_ROS_Environment
 # results
-from utils import plot_results, save_Q_table, obs_to_state
+from utils import plot_results, save_Q_table, obs_to_state, save_Q_table_dict
 
 
 if __name__ == '__main__':
+    # plot_results(mode='qlearn', training=True, texts="")
+    # exit()
 
     rospy.init_node('ur5_qlearn', anonymous=True, log_level=rospy.WARN)
     task_and_robot_environment_name = rospy.get_param(
@@ -50,7 +52,7 @@ if __name__ == '__main__':
 
         cumulated_reward = 0
         done = False
-        info, readyToGrasp = False, False
+        info, readyToGrasp = {}, False
         if qlearn.epsilon > 0.05: # # Original 0.05
             qlearn.epsilon *= epsilon_discount
 
@@ -61,7 +63,7 @@ if __name__ == '__main__':
 
         # For each episode, we test the robot for nsteps
         for i in range(nsteps):
-            action = qlearn.chooseAction(state, info) # Pick an action based on the current state
+            action = qlearn.chooseAction(state) # Pick an action based on the current state
             observation, reward, done, info = env.step(action)# Execute action in env and get feedback
 
             cumulated_reward += reward
@@ -89,6 +91,11 @@ if __name__ == '__main__':
 
     '''program end'''
     save_Q_table(Q_values=qlearn.q)
+    try:
+        save_Q_table_dict(Q_values=qlearn.q)
+    except:
+        pass
     env.close()
     print("xxxxxxxxxxxxxxxxxxxxx\nEND start_training_qlearn_ur5\nxxxxxxxxxxxxxxxxxxxxx")
-    plot_results(mode='qlearn')
+    plot_results(mode='qlearn', training=True, texts="")
+    

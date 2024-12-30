@@ -59,6 +59,11 @@ Tracking tasks are using REINFORCE and PPO-GAE algorithms.
   ```
 
 #### Then, launch the chosen training process in another Terminal:
+  - for both:
+    ```
+    set the z_dist in training_params.yaml
+    ```
+    
   - for REINFORCE:
     ```
     roslaunch ur_tracking reinforce_main.launch

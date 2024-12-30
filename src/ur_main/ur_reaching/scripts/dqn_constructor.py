@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 import numpy as np
 import datetime
-from utils import ABSOLUTEDATAPATH, ISOTIMEFORMAT
+from utils import ABSOLUTETRAININGDATAPATH, ISOTIMEFORMAT
 
 
 ## create a 1-hidden-Network to approximate Q-Values
@@ -38,6 +38,8 @@ def create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr):
 
             self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
             print("self.device = ", self.device)
+            
+            torch.set_printoptions(precision=3)
 
             self.q_net = create_Q_net(num_states, num_mid, num_actions)
             self.q_net.to(self.device)
@@ -75,7 +77,7 @@ def create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr):
             loss.backward()
             self.optimizer.step()
 
-        def getAction(self, obs_numpy, is_training, info):
+        def getAction(self, obs_numpy, is_training):
             obs_tensor = torch.from_numpy(obs_numpy).float()
             obs_tensor.unsqueeze_(0)
             obs_tensor = obs_tensor.to(self.device)
@@ -83,32 +85,22 @@ def create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr):
                 self.q_net.eval()
                 q = self.q_net(obs_tensor)
 
-                '''with 6 outputs'''
-                # action = np.argmax(q.cpu().detach().numpy(), axis=1)[0]
-                # if info:
-                #     action += 6
-                # if is_training and np.random.rand() < self.epsilon:
-                #     print("rrrrrrrrrrr random choice rrrrrrrrrrr")
-                #     action = np.random.randint(self.num_actions)
-                #     if info:
-                #         action += 6
-                        
-                '''with 12 outputs'''
-                if info is False:
-                    action = np.argmax(q.cpu().detach().numpy()[:,:6], axis=1)[0]
-                    ## random choice
-                    if is_training and np.random.rand() < self.epsilon:
-                        random_action = np.random.randint(6)# self.num_actions
-                        print("rrrrrrrrrrr random choice:",random_action, " // ", action, " rrrrrrrrrrr")
-                        action = random_action
-                else:
-                    action = np.argmax(q.cpu().detach().numpy()[:,6:], axis=1)[0] + 6
-                    ## random choice
-                    if is_training and np.random.rand() < self.epsilon:
-                        random_action = np.random.randint(6,12) # self.num_actions
-                        print("rrrrrrrrrrr random choice:",random_action, " // ", action, " rrrrrrrrrrr")
-                        action = random_action
+                '''original'''
+                action = np.argmax(q.cpu().detach().numpy(), axis=1)[0]
+                print(q)
+                ## random choice
+                if is_training and np.random.rand() < self.epsilon:
+                    random_action = np.random.randint(self.num_actions)
+                    print("rrrrrrrrrrr random choice:",random_action, " // ", action, " rrrrrrrrrrr")
+                    action = random_action
+                '''
+                Was 6/12 outputs
+                '''
             return action # np.random.randint(10, 12)
+
+        def loadQnet(self, path):
+            self.q_net.load_state_dict(torch.load(path, map_location=self.device))
+            self.q_net.eval()
 
         def saveQnet(self, saving, path):
             if not saving:
@@ -121,23 +113,27 @@ def create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr):
 
 
 ## create a agent with brain of QNet to make decisions
-def create_agent(num_states, num_mid, num_actions, gamma, epsilon, lr):
+def create_agent(num_states, num_mid, num_actions, gamma, epsilon, lr, q_net_path):
 
     class Agent:
-        def __init__(self, num_states, num_mid, num_actions, gamma, epsilon, lr):
+        def __init__(self, num_states, num_mid, num_actions, gamma, epsilon, lr, q_net_path):
             self.brain = create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr)
+            self.q_net_path = q_net_path
 
         def updateQnet(self, obs, action, reward, next_obs):
             self.brain.updateQnet(obs, action, reward, next_obs)
 
-        def getAction(self, obs, is_training, info):
-            action = self.brain.getAction(obs, is_training, info)
+        def getAction(self, obs, is_training):
+            action = self.brain.getAction(obs, is_training)
             return action
         
-        def saveQnet(self, saving, path=ABSOLUTEDATAPATH+'/model_dqn'):
+        def loadQnet(self):
+            self.brain.loadQnet(self.q_net_path)
+
+        def saveQnet(self, saving, path=ABSOLUTETRAININGDATAPATH+'/model_dqn'):
             self.brain.saveQnet(saving, path)
 
-    return Agent(num_states, num_mid, num_actions, gamma, epsilon, lr)
+    return Agent(num_states, num_mid, num_actions, gamma, epsilon, lr, q_net_path)
 
 '''
 def getAction(self, obs_numpy, is_training):
@@ -165,3 +161,29 @@ def getAction(self, obs_numpy, is_training):
                 self.epsilon *= self.ed
             return action
 '''
+
+'''with 6 outputs'''
+# action = np.argmax(q.cpu().detach().numpy(), axis=1)[0]
+# if info:
+#     action += 6
+# if is_training and np.random.rand() < self.epsilon:
+#     print("rrrrrrrrrrr random choice rrrrrrrrrrr")
+#     action = np.random.randint(self.num_actions)
+#     if info:
+#         action += 6
+        
+'''with 12 outputs'''
+# if info is False:
+#     action = np.argmax(q.cpu().detach().numpy()[:,:6], axis=1)[0]
+#     ## random choice
+#     if is_training and np.random.rand() < self.epsilon:
+#         random_action = np.random.randint(6)# self.num_actions
+#         print("rrrrrrrrrrr random choice:",random_action, " // ", action, " rrrrrrrrrrr")
+#         action = random_action
+# else:
+#     action = np.argmax(q.cpu().detach().numpy()[:,6:], axis=1)[0] + 6
+#     ## random choice
+#     if is_training and np.random.rand() < self.epsilon:
+#         random_action = np.random.randint(6,12) # self.num_actions
+#         print("rrrrrrrrrrr random choice:",random_action, " // ", action, " rrrrrrrrrrr")
+#         action = random_action

@@ -57,3 +57,31 @@ The next if we set 6 joints as states 12 actions for Q, the statespace and Q-tab
 The question is to use which threshold with respect to tolerance. Or should i get the coordinate of wrist1?
 
 ADD: export PYTHONPATH=~/drl_obj_reaching_tracking/src/ur_main/ur_reaching/src/openai_ros:$PYTHONPATH
+
+
+
+
+
+
+
+
+
+1. Comparison: Object reaching (0.1m)
+- Qlearn (done)
+- DQN (done)
+- DDQN (in progress)
+timesteps, success rate
+[18,17,17,16,80,19,80,,19,80], 7/10
+
+
+
+
+2. Comparison: Object tracking
+- Reinforce (null)
+- PPO with GAE (0.1,0.2,0.3)
+
+
+Comparison Metrics:
+Zeit (time steps)
+Success Rate (10)
+...

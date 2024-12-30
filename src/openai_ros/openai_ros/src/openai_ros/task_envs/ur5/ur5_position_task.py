@@ -44,19 +44,12 @@ class UR5PositionEnv(ur5_env.UR5Env):
         low = np.array([-np.pi, -np.pi, -np.pi])
         self.observation_space = spaces.Box(low, high)
         
-        '''pose mode'''
-        # # current score for reward estimating
-        # self.goal_array = np.array(list(self.goal_pos.values()))
-        # self.prev_pos_dist = self.init_distance(self.init_pos) # init_pose from get_params
-        '''position mode'''
         self.listener = tf.TransformListener()
         self.init_coord_dist = None
         self.prev_coord_dist = None
         self.curr_coord = None
         self.diff = np.inf
         self.goaled = 0
-        self.switch = False
-
         self.non_movement = 0
 
         # Add init functions prior to starting the enviroment
@@ -204,19 +197,31 @@ class UR5PositionEnv(ur5_env.UR5Env):
         done = False
         tolerance = 0.1 # Original 0.2
         
-        if not moved and self.check_move and self.non_movement_done:
-            if self.non_movement >= 2:
-                done = True
-                self.current_iteration = 0
-                self.non_movement = 0
-                return done
-            else: self.non_movement += 1
-        elif moved: self.non_movement = 0
+        # if not moved and self.check_move and self.non_movement_done:
+        #     if self.non_movement >= 2:
+        #         done = True
+        #         self.current_iteration = 0
+        #         self.non_movement = 0
+        #         return done
+        #     else: self.non_movement += 1
+        # elif moved: self.non_movement = 0
+        if not moved:
+            done = True
+            self.current_iteration = 0
+            self.non_movement = 0
+            return done
 
         self.curr_coord = self.get_gripper_coord()
+
+        if self.curr_coord[-1] < 0.03:
+            done = True
+            self.current_iteration = 0
+            self.non_movement = 0
+            return done
+
         self.diff = np.sqrt(np.sum((self.curr_coord - self.goal_coord)**2))
         print("Current distance:", self.diff)
-        if self.diff < 0.05:
+        if self.diff < tolerance:
             done = True
             rospy.logerr("Goal coordinate reached !!!")
         elif self.current_iteration == (self.max_iterations-1):
@@ -240,35 +245,34 @@ class UR5PositionEnv(ur5_env.UR5Env):
             self.current_iteration += 1
             return reward
         
+        if self.curr_coord[-1] < 0.06:
+            reward = -20
+            self.current_iteration += 1
+            return reward
+        
         curr_coord_dist = np.sqrt(np.sum((self.curr_coord - self.goal_coord)**2))
+        
         score = 1 / curr_coord_dist
         progress = self.prev_coord_dist - curr_coord_dist
         if not done:
             if progress > 0.0:
-                if info and not self.switch:
-                    reward = 50
-                    self.switch = True
-                else:
-                    reward = score ## use progress as reward
+                reward = score ## use progress as reward
             else:
-                reward = -score
-                # if info:
-                #     reward = -curr_coord_dist * 100
-                # else:
-                #     reward = -score #-curr_coord_dist
+                reward = -score # -curr_coord_dist * 10
+            # # for it goes too low
+            # if self.curr_coord[-1] < 0.06: # half Height of cube
+            #     reward = -10
+            
             self.prev_coord_dist = np.copy(curr_coord_dist)
             self.current_iteration += 1
+        
         elif done and self.current_iteration == 0: # last but not reached
             # If done due to be the last step of episode (we just reseted it in _is_done())
             # then compute reward
-            # if progress > 0.0:
-            #     reward = score
-            # else:
-            #     reward = -curr_coord_dist * 10
             reward = score
             self.prev_coord_dist = np.copy(self.init_coord_dist)
             self.diff = np.inf
-            self.switch = False
+
         elif done and self.current_iteration > 0:
             # If done at an iteration greater than 0, then it must has reached
             reward = self.reached_goal_reward
@@ -277,7 +281,6 @@ class UR5PositionEnv(ur5_env.UR5Env):
             self.curr_coord = None
             self.prev_coord_dist = np.copy(self.init_coord_dist)
             self.diff = np.inf
-            self.switch = False
         else:
             rospy.logdebug("Unknown goal status => Reward?")
             reward = 0
@@ -285,16 +288,17 @@ class UR5PositionEnv(ur5_env.UR5Env):
             self.curr_coord = None
             self.prev_coord_dist = np.copy(self.init_coord_dist)
             self.diff = np.inf
-            self.switch = False
         
-        rospy.logwarn("Goal reached " + str(self.goaled) + " times.")
+        rospy.logwarn("# Goal reached " + str(self.goaled) + " times.")
         return reward
 
     def _get_info(self):
         ### Check if the coarse positioning is complete, and if so, begin fine-positioning.
-        if self.diff <= 0.1: #0.12: # 0.15
-            return True
-        return False
+        '''There is no need to distinguish between coarse and fine positioning.'''
+        return {}
+        # if self.diff <= 0.1: #0.12: # 0.15
+        #     return True
+        # return False
     
     def _init_env_variables(self):
 
@@ -313,9 +317,9 @@ class UR5PositionEnv(ur5_env.UR5Env):
         :return:
         """
 
-        rospy.logdebug('Checking publishers connection')
+        rospy.logwarn('Checking publishers connection')
         self.check_publishers_connection()
-
+        rospy.logwarn('publishers connection down')
         rospy.logdebug('Reseting to initial robot position')
         # Reset internal position variable
         self.init_internal_vars(self.init_pos)

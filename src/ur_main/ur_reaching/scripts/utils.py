@@ -5,17 +5,22 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import datetime
 import rospy
+import pickle
 
 
 ISOTIMEFORMAT = '%Y-%m-%d %H:%M'
-ABSOLUTEDATAPATH = rospy.get_param("/ur5/wrapper_results_path")
+ABSOLUTETRAININGDATAPATH = rospy.get_param("/ur5/wrapper_training_results_path")
+ABSOLUTETESTDATAPATH = rospy.get_param("/ur5/wrapper_test_results_path")
 
 # read folder, find out json data
-def plot_results(mode=None, win=None):
+def plot_results(mode=None, win=None, training=False, texts=None):
     if mode is None:
         return
     
-    folder_path = ABSOLUTEDATAPATH +'/monitor_' + mode
+    if training:
+        folder_path = ABSOLUTETRAININGDATAPATH +'/monitor_' + mode
+    else:
+        folder_path = ABSOLUTETESTDATAPATH +'/monitor_' + mode
     # folder_path also can be monitor_dqn
     files = os.listdir(folder_path)
     file_name = None
@@ -49,18 +54,46 @@ def plot_results(mode=None, win=None):
         plt.title('Rewards per Episode')
         plt.grid(color='gray', linestyle='--', linewidth=0.5)
         plt.legend()
+        plt.text(0.1, 0.8, texts, transform=plt.gca().transAxes, fontsize=10,
+                 bbox=dict(facecolor='white', alpha=0.5))
         figure_name = datetime.datetime.now().strftime(ISOTIMEFORMAT)
-        figure_path = (ABSOLUTEDATAPATH + '/figure_' + mode + '/{}.png').format(figure_name)
+        if training:
+            figure_path = (ABSOLUTETRAININGDATAPATH + '/figure_' + mode + '/{}.png').format(figure_name)
+        else:
+            figure_path = (ABSOLUTETESTDATAPATH + '/figure_' + mode + '/{}.png').format(figure_name)
         plt.savefig(figure_path)
         plt.show()
         
-def save_Q_table(folder_path=ABSOLUTEDATAPATH+'/qtable_qlearn', Q_values=None, idx=0):
+def save_Q_table(Q_values=None):
     if Q_values is None:
         return
-    df = pd.DataFrame(Q_values, index=[idx])
+    # df = pd.DataFrame(Q_values, index=[0])
+    # data_name = datetime.datetime.now().strftime(ISOTIMEFORMAT)
+    # folder_path = ABSOLUTEDATAPATH+'/qtable_qlearn'
+    # data_path = (folder_path + '/{}.csv').format(data_name)
+    # df.to_csv(data_path,float_format='%.3f')
+    
     data_name = datetime.datetime.now().strftime(ISOTIMEFORMAT)
-    data_path = (folder_path + '/{}.csv').format(data_name)
-    df.to_csv(data_path,float_format='%.3f')
+    folder_path = ABSOLUTETRAININGDATAPATH + '/qtable_qlearn'
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    data_path = (folder_path + '/{}.json').format(data_name)
+
+    Q_table_serializable = {str(k): v for k, v in Q_values.items()}
+    with open(data_path, 'w') as f:
+        json.dump(Q_table_serializable, f)
+
+def save_Q_table_dict(Q_values=None):
+    if Q_values is None:
+        return
+    data_name = datetime.datetime.now().strftime(ISOTIMEFORMAT)
+    folder_path = ABSOLUTETRAININGDATAPATH + '/qtable_qlearn'
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    data_path = (folder_path + '/{}.pkl').format(data_name)
+    with open(data_path, 'wb') as f:
+        pickle.dump(Q_values, f)
+
 
 def obs_to_state(obs:np.ndarray, format=None):
     if format is None:

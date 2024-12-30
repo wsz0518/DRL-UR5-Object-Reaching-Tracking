@@ -205,7 +205,7 @@ while (ros::ok())
     current_blocks_publisher.publish(current_blocks_msg);
 
     ros::spinOnce();
-    ros::Duration(20.0).sleep();  // frequency control, spawn one cylinder in each loop
+    ros::Duration(20.0).sleep();  //20.0 frequency control, spawn one cylinder in each loop
     // delay time decides density of the cylinders
 
     delete_model_req.model_name = "red_blocks_" + index;  // initialize model_name

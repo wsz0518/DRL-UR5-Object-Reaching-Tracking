@@ -10,6 +10,7 @@ import rospy
 import tf
 from ur_tracking.env.joint_publisher import JointPub
 from ur_tracking.env.joint_traj_publisher import JointTrajPub
+from ur_tracking.env.collision_publisher import CollisionPublisher
 
 # Gazebo
 from gazebo_msgs.srv import SetModelState, SetModelStateRequest, GetModelState
@@ -63,7 +64,7 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         rospy.Subscriber("/joint_states", JointState, self.joints_state_callback)
         rospy.Subscriber("/target_blocks_pose", Point, self.target_point_callback)
         rospy.Subscriber("/gazebo/link_states", LinkStates, self.link_state_callback)
-        rospy.Subscriber("/collision_status", Bool, self.collision_status)
+        # rospy.Subscriber("/collision_status", Bool, self.collision_status)
 
         # For checking reset processing.. since collision checking
         self.reset_precessing = False
@@ -77,6 +78,11 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         
         # Tracking distance in z
         self.z_dist = rospy.get_param("z_dist")
+        self.height = 0.0
+
+        # Test
+        self.success = False
+        self.in_test = False
         
         # Joint Velocity limitation
         shp_vel_max = rospy.get_param("/joint_velocity_limits_array/shp_max")
@@ -175,6 +181,7 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         self.end_effector = Point() 
         self.distance = None
         self.prev_distance = -np.inf
+        self.is_tracking = False
 
         # Arm/Control parameters
         self._ik_params = setups['UR5_6dof']['ik_params']
@@ -182,6 +189,9 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         # ROS msg type
         self._joint_pubisher = JointPub()
         self._joint_traj_pubisher = JointTrajPub()
+
+        # Gazebo collsion msg puiblisher
+        # self._collision_publisher = CollisionPublisher()
 
         # Gym interface and action
         # self.action_space = spaces.Discrete(6)
@@ -332,7 +342,7 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         
         if msg.data == True and self.reset_precessing == False:
             self.reset()
-            print("###### collision is True #####")
+            print("###### Colliding ! #####")
 
     def get_xyz(self, q):
         """Get x,y,z coordinates 
@@ -609,6 +619,9 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         self._gz_conn.pauseSim()
         # self._init_obj_pose()
 
+        self.success = False
+        self.in_test = False
+
         # 8th: Get the State Discrete Stringuified version of the observations
         rospy.logdebug("get_observations...")
         observation = self.get_observations()
@@ -648,7 +661,15 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
         # finally we get an evaluation based on what happened in the sim
         reward, done = self.step_reward_done()
 
-        return observation, reward, done, {}
+        # For test
+        # if -0.5 <= self.target_point.x <= 0.5:
+        #     self.in_test = True
+        #     if self.distance <= 0.1:
+        #         self.success = True
+        if self.distance <= 0.1:
+                self.success = True
+
+        return observation, reward, done, {"success_rate": (self.success, self.in_test)} # info
     
     def _act(self, action):
         action = list(action)
@@ -656,14 +677,6 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
             action.extend([0.0, 0.0])
         
         self._joint_pubisher.move_joints(action)
-        # if self._ctrl_type == 'traj_vel':
-        #     self.pre_ctrl_type = 'traj_vel'
-        #     self._joint_traj_pubisher.jointTrajectoryCommand(action)
-        # elif self._ctrl_type == 'vel':
-        #     self.pre_ctrl_type = 'vel'
-        #     self._joint_pubisher.move_joints(action)
-        # else:
-        #     self._joint_pubisher.move_joints(action)
         
     def training_ok(self):
         rate = rospy.Rate(1)
@@ -678,34 +691,46 @@ class URSimTracking(robot_gazebo_env_goal.RobotGazeboEnv):
     def compute_dist_rewards(self):
         end_effector_pose = np.array([self.end_effector.x, self.end_effector.y, self.end_effector.z])
         self.distance = np.linalg.norm(end_effector_pose - [self.target_point.x, self.target_point.y, self.target_point.z+self.z_dist], axis=0)
-        progress = self.prev_distance - self.distance
-
-        if self.end_effector.z - self.target_point.z < 0.1:
+        
+        self.height = self.end_effector.z - self.target_point.z
+        tolerance = 0.1
+        if self.height < 0.01:
             rospy.logwarn("xxx End effector is too low xxx")
-            reward = -10.0
+            reward = -100.0
+        # elif 0.01 <= self.height < self.z_dist-tolerance: #self.z_dist
+        #     rospy.logwarn("***End effector is too low***")
+        #     reward = -1.0
         else:
-            if self.distance < 0.05:
+            progress = self.prev_distance - self.distance
+            if self.distance < tolerance:
                 rospy.logerr("***End effector is tracking target now***")
+                self.is_tracking = True
                 if progress > 0.0:
-                    reward = 100.0
+                    reward = 10.0
                 else:
-                    reward = -np.exp(self.distance)
+                    reward = -np.exp(-self.distance) #-np.exp(self.distance)/2 # 
             else:
+                self.is_tracking = False
                 if progress > 0.0:
-                    reward = np.exp(-self.distance)
+                    reward = np.exp(-self.distance) #np.exp(-self.distance) # 
                 else:
-                    reward = -np.exp(self.distance)
+                    if 0.01 <= self.height < 0.05: #self.z_dist-tolerance:
+                        reward = -10.0
+                    else:
+                        reward = -np.exp(-self.distance) #-np.exp(self.distance)/2 #
     
         self.prev_distance = copy.deepcopy(self.distance)
         print("-----------------------------------------")
-        # rospy.loginfo("Target: " + str(self.target_point.x))
-        rospy.loginfo("Distance: " + str(self.distance)[:5] + "--> Reward: " + str(reward)[:5])
+        rospy.loginfo("Height: " + str(self.height)[:4] + "->Dist: " + str(self.distance)[:4] + "->Reward: " + str(reward)[:4])
         print("-----------------------------------------")
         return reward
     
     def step_reward_done(self):
         reward = self.compute_dist_rewards()
         done = False
+
+        if reward == -100.0:
+            done = True
         
         if self.target_point.x < -0.79:
             done = True
