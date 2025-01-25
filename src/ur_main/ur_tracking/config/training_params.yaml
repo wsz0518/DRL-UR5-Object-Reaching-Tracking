@@ -22,7 +22,7 @@ max_height: 3.0   # in meters
 min_height: 0.5   # in meters
 running_step: 0.001   # in seconds origin0.001
 
-z_dist: 0.1 # 0.3 0.2 0.1 # How high from target to gripper
+z_dist: 0.3 # 0.3 0.2 0.1 # How high from target to gripper
 
 observations: # Observations you want to use for the learning
   - shp_joint_ang

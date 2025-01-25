@@ -13,7 +13,7 @@ ABSOLUTETRAININGDATAPATH = rospy.get_param("/ur5/wrapper_training_results_path")
 ABSOLUTETESTDATAPATH = rospy.get_param("/ur5/wrapper_test_results_path")
 
 # read folder, find out json data
-def plot_results(mode=None, win=None, training=False, texts=None):
+def plot_results(mode=None, win=None, training=False, texts=None, legend=True):
     if mode is None:
         return
     
@@ -48,13 +48,16 @@ def plot_results(mode=None, win=None, training=False, texts=None):
         # # add episode type
         # for x, y, t in zip(episodes, rewards, types):
         #     plt.text(x, y+0.3, t, ha='center', va='bottom')
-
+        if not training:
+            plt.xlim(0, 9)
+            plt.ylim(0, 300)
         plt.xlabel('Episode')
         plt.ylabel('Cumulated Episode Reward')
-        plt.title('Rewards per Episode')
+        plt.title('Rewards per Episode from ' + mode)
         plt.grid(color='gray', linestyle='--', linewidth=0.5)
-        plt.legend()
-        plt.text(0.1, 0.8, texts, transform=plt.gca().transAxes, fontsize=10,
+        if legend:
+            plt.legend()
+        plt.text(0.1, 0.2, texts, transform=plt.gca().transAxes, fontsize=10,
                  bbox=dict(facecolor='white', alpha=0.5))
         figure_name = datetime.datetime.now().strftime(ISOTIMEFORMAT)
         if training:

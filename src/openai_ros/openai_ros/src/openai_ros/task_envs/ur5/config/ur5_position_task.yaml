@@ -29,7 +29,7 @@ ur5: #namespace
     position_delta: 0.05  # Increments/Decrements in the positions each action step
 
     check_move: True
-    non_movement_penalty: -100
+    non_movement_penalty: -20
     non_movement_done: True
 
     # position_delta_large: 0.6

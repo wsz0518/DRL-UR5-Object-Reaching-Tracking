@@ -150,7 +150,7 @@ def plot_training_results(
     # 1. Average Return
     plt.figure(figsize=(8, 8))
     plt.plot(avg_return_list)
-    plt.title('Average Return over Training')
+    plt.title('Average Return over Training from PPO')
     plt.xlabel('Updates')
     plt.ylabel('Average Return')
     plt.tight_layout()
@@ -160,7 +160,7 @@ def plot_training_results(
     # 2. Policy Loss
     plt.figure(figsize=(8, 8))
     plt.plot(avg_pol_loss_list)
-    plt.title('Policy Loss over Training')
+    plt.title('Policy Loss over Training from PPO')
     plt.xlabel('Updates')
     plt.ylabel('Policy Loss')
     plt.tight_layout()
@@ -170,7 +170,7 @@ def plot_training_results(
     # 3. Value Loss
     plt.figure(figsize=(8, 8))
     plt.plot(avg_val_loss_list)
-    plt.title('Value Loss over Training')
+    plt.title('Value Loss over Training from PPO')
     plt.xlabel('Updates')
     plt.ylabel('Value Loss')
     plt.tight_layout()
@@ -180,7 +180,7 @@ def plot_training_results(
     # 4. KL Divergence
     plt.figure(figsize=(8, 8))
     plt.plot(kl_divergence_list)
-    plt.title('KL Divergence over Training')
+    plt.title('KL Divergence over Training from PPO')
     plt.xlabel('Updates')
     plt.ylabel('KL Divergence')
     plt.tight_layout()
@@ -190,7 +190,7 @@ def plot_training_results(
     # 5. Policy Entropy
     plt.figure(figsize=(8, 8))
     plt.plot(entropy_list)
-    plt.title('Policy Entropy over Training')
+    plt.title('Policy Entropy over Training from PPO')
     plt.xlabel('Updates')
     plt.ylabel('Entropy')
     plt.tight_layout()
@@ -200,7 +200,7 @@ def plot_training_results(
 def plot_episode_returns(res_path, all_episode_returns):
     plt.figure(figsize=(8, 6))
     plt.plot(all_episode_returns, marker='o', linewidth=1.0)
-    plt.title('Return per Episode')
+    plt.title('Return per Episode from PPO')
     plt.xlabel('Updates')
     plt.ylabel('Return')
     plt.tight_layout()

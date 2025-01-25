@@ -3,28 +3,25 @@ import tensorflow as tf
 from tensorflow.keras import layers, optimizers
 from sklearn.utils import shuffle
 
-# ==============================
-# 迁移过来的 PolicyNetwork (仅用于 REINFORCE)
-# ==============================
+# 和 PPO 类似，先定义一个 PolicyNetwork
 class PolicyNetwork(tf.keras.Model):
     def __init__(self, obs_dim, act_dim, hdim, max_std, seed=0):
         super().__init__()
         tf.random.set_seed(seed)
         np.random.seed(seed)
 
-        # 和 PPOAgent 中类似的初始化方式
+        # 两层隐藏层
         self.hid1 = layers.Dense(hdim, activation='tanh',
                                  kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
                                  name='policy_h1')
         self.hid2 = layers.Dense(hdim, activation='tanh',
                                  kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
                                  name='policy_h2')
+        # 均值输出层
         self.mean_layer = layers.Dense(act_dim,
                                        kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
                                        name='mean')
-
-        # logstd 用 sigmoid 加上一个缩放，类似 PPOAgent 中的写法
-        # 使其可学习，但又不会无限大或负到崩溃
+        # 可训练的对数标准差 logits_std，用 sigmoid 做范围限制
         self.logits_std = tf.Variable(
             initial_value=tf.random.normal(shape=(1,), stddev=0.01, seed=seed),
             trainable=True, name='logits_std'
@@ -33,170 +30,208 @@ class PolicyNetwork(tf.keras.Model):
 
     def call(self, obs):
         """
-        前向传播：输出 (mean, std)
-        obs: shape = [batch_size, obs_dim]
+        前向传播，输出: (mean, std)
+        obs: shape=[batch_size, obs_dim]
         """
         x = self.hid1(obs)
         x = self.hid2(x)
-        mean = self.mean_layer(x)  # shape=[batch_size, act_dim]
-
-        # std 范围受 sigmoid & max_std 限制
-        std = self.max_std * tf.sigmoid(self.logits_std)  # shape=[1,]
-        # 为了和 mean 形状匹配，这里做一个 broadcast
-        std = tf.ones_like(mean) * std  # shape=[batch_size, act_dim]
+        mean = self.mean_layer(x)  # [batch_size, act_dim]
+        # 用 sigmoid 做限制，让 std  ∈ (0, max_std]
+        std = self.max_std * tf.ones_like(mean) * tf.sigmoid(self.logits_std)
         return mean, std
 
 
-# ==============================
-# REINFORCE Agent (迁移 PPO 写法，但核心不变)
-# ==============================
 class REINFORCEAgent(object):
-    def __init__(self, obs_dim, n_act,
-                 epochs=10, lr=3e-5, hdim=64, max_std=1.0,
-                 seed=0):
-        
+    def __init__(self, obs_dim, act_dim,
+                 epochs=10, lr=3e-5, hdim=64, max_std=1.0, seed=0):
         self.seed = seed
         tf.random.set_seed(self.seed)
         np.random.seed(self.seed)
 
         self.obs_dim = obs_dim
-        self.n_act = n_act
-        
+        self.act_dim = act_dim
         self.epochs = epochs
         self.lr = lr
         self.hdim = hdim
         self.max_std = max_std
 
-        # ===== 类似 PPOAgent：建立一个 PolicyNetwork =====
+        # ==============================
+        # 构建策略网络 + 优化器
+        # ==============================
         self.policy_network = PolicyNetwork(obs_dim=self.obs_dim,
-                                            act_dim=self.n_act,
+                                            act_dim=self.act_dim,
                                             hdim=self.hdim,
                                             max_std=self.max_std,
                                             seed=self.seed)
-
-        # ===== 优化器也使用 Adam =====
-        self.optimizer = optimizers.Adam(learning_rate=self.lr)
+        self.policy_optimizer = optimizers.Adam(learning_rate=self.lr)
 
     def log_prob(self, act, mean, std):
         """
-        计算高斯分布 N(mean, std^2) 的 log probability。
-        act, mean, std 均为 shape=[batch_size, action_dim]。
-        返回 shape=[batch_size]，对应每条样本的对数概率。
-        
-        对多维度动作做独立高斯的假设，因此是各维度对数概率之和。
+        和 PPO 中一样，计算给定 (mean,std) 下每个样本动作 act 的对数概率。
+        act, mean, std 形状都是 [batch_size, act_dim]
+        返回 [batch_size]，表示每条样本的 log_prob。
         """
-        # shape: (batch_size, action_dim)
-        var = tf.square(std)
-        log_std = tf.math.log(std)
-
-        # log(N(x; mean, std)) = -0.5 * sum( ((x-mean)/std)^2 ) - sum(log_std) - (D/2)*log(2π)
-        # 这里跟 PPOAgent 一样省去常数 or 只做 axis=1 的 reduce_sum
-        # 若要更严谨，需包含 (D/2)*log(2π)；对梯度无影响，这里可省略
-        logp_per_dim = -0.5 * tf.square((act - mean) / std) - log_std
-        logp = tf.reduce_sum(logp_per_dim, axis=1)
+        # 高斯分布 logprob：-0.5*((y-mu)/sigma)^2 - log(sigma) - 0.5*log(2π)
+        # 多维动作 => 各维度对数概率之和
+        logp_per_dim = -0.5 * tf.square((act - mean) / std) \
+                       - tf.math.log(std) \
+                       - 0.5 * np.log(2.0 * np.pi)
+        logp = tf.reduce_sum(logp_per_dim, axis=1)  # 对动作维度累加
         return logp
 
     @tf.function
-    def _compute_loss(self, obs, act, score):
+    def train_step(self, obs_batch, act_batch, score_batch):
         """
-        REINFORCE loss:  - E[ score * log_pi(a|s) ]
+        类似于 PPO 里的 train_step, 但这里不需要 ratio、clip 等,
+        只用 REINFORCE 核心:  loss = - mean( score * logπ(a|s) )
+        """
+        with tf.GradientTape() as tape:
+            mean, std = self.policy_network(obs_batch)
+            logp = self.log_prob(act_batch, mean, std)
+            # if shape is [batch_size,1], reshape to [batch_size]
+            score_batch = tf.reshape(score_batch, [-1])
+            loss_per_sample = - score_batch * logp
+            loss = tf.reduce_mean(loss_per_sample)
+        gradients = tape.gradient(loss, self.policy_network.trainable_variables)
+        self.policy_optimizer.apply_gradients(zip(gradients, self.policy_network.trainable_variables))
+        return loss
 
-        obs:    [batch_size, obs_dim]
-        act:    [batch_size, act_dim]
-        score:  [batch_size]  (或 [batch_size,1])
+    def compute_losses(self, obs, act, score):
+        """
+        类似 PPO 的 compute_losses, 但这里只有 policy loss。
+        不涉及 advantage/clip/value 等。
         """
         mean, std = self.policy_network(obs)
-        logp = self.log_prob(act, mean, std)  # [batch_size]
-        # 注意是 - score * logp
-        # score 的形状如果是 [batch_size,1], 这里最好先 squeeze 一下
-        score = tf.reshape(score, [-1])  # 确保是 [batch_size]
+        logp = self.log_prob(act, mean, std)
+        score = tf.reshape(score, [-1])
         loss_per_sample = - score * logp
-        loss = tf.reduce_mean(loss_per_sample)
-        return loss
+        policy_loss = tf.reduce_mean(loss_per_sample)
+        return policy_loss
 
     def get_action(self, obs):
         """
-        采样动作： mean + std * noise
-        obs: shape=[obs_dim] or [1, obs_dim]
-        返回 shape=[act_dim]
+        从当前策略中采样动作: a = mean + std*noise
+        obs 可以是单步 [obs_dim] 或者 batch [batch_size, obs_dim]
         """
         obs_tf = tf.convert_to_tensor(obs, dtype=tf.float32)
         if len(obs_tf.shape) == 1:
-            obs_tf = tf.expand_dims(obs_tf, axis=0)  # 变成 batch_size=1
-
-        mean, std = self.policy_network(obs_tf)  # shape=[1, act_dim]
+            obs_tf = tf.expand_dims(obs_tf, axis=0)
+        mean, std = self.policy_network(obs_tf)
         noise = tf.random.normal(tf.shape(mean), seed=self.seed)
-        sampled_action = mean*0.0 + std * noise
-        return sampled_action[0].numpy()
+        sampled_action = mean + std * noise
+        print(sampled_action[0].numpy())
+        return sampled_action[0].numpy()  # 只取第一个样本
 
     def control(self, obs):
-        
+        """
+        确定性动作（直接输出 mean)
+        """
         obs_tf = tf.convert_to_tensor(obs, dtype=tf.float32)
         if len(obs_tf.shape) == 1:
             obs_tf = tf.expand_dims(obs_tf, axis=0)
-
         mean, std = self.policy_network(obs_tf)
         return mean[0].numpy()
 
     def update(self, observes, actions, scores, batch_size=128):
         """
-        REINFORCE 训练循环 (类似之前的写法)
+        效仿 PPO 里的 update, 使用 tf.data.Dataset + mini-batch + shuffle。
+        但核心公式仍是 REINFORCE: - E[score * logπ(a)]
         """
         num_batches = max(observes.shape[0] // batch_size, 1)
         batch_size = observes.shape[0] // num_batches
 
+        # 打乱数据
+        observes, actions, scores = shuffle(observes, actions, scores, random_state=self.seed)
+
+        # 建立 dataset
+        dataset = tf.data.Dataset.from_tensor_slices((observes, actions, scores))
+        dataset = dataset.batch(batch_size)
+
+        # 多个 epoch 训练
         for e in range(self.epochs):
-            # 打乱数据
-            observes, actions, scores = shuffle(observes, actions, scores, random_state=self.seed)
-            
-            # 分成小批量
-            for j in range(num_batches):
-                start = j * batch_size
-                end = (j + 1) * batch_size
+            for batch in dataset:
+                obs_batch, act_batch, score_batch = batch
+                obs_batch = tf.convert_to_tensor(obs_batch, dtype=tf.float32)
+                act_batch = tf.convert_to_tensor(act_batch, dtype=tf.float32)
+                score_batch = tf.convert_to_tensor(score_batch, dtype=tf.float32)
+                self.train_step(obs_batch, act_batch, score_batch)
 
-                obs_batch = tf.convert_to_tensor(observes[start:end, :], dtype=tf.float32)
-                act_batch = tf.convert_to_tensor(actions[start:end], dtype=tf.float32)
-                sco_batch = tf.convert_to_tensor(scores[start:end], dtype=tf.float32)
-
-                with tf.GradientTape() as tape:
-                    loss = self._compute_loss(obs_batch, act_batch, sco_batch)
-                grads = tape.gradient(loss, self.policy_network.trainable_variables)
-                self.optimizer.apply_gradients(zip(grads, self.policy_network.trainable_variables))
-
-        # 计算最终 loss 仅做返回或记录
-        obs_tf_all = tf.convert_to_tensor(observes, dtype=tf.float32)
-        act_tf_all = tf.convert_to_tensor(actions, dtype=tf.float32)
-        sco_tf_all = tf.convert_to_tensor(scores, dtype=tf.float32)
-        final_loss = self._compute_loss(obs_tf_all, act_tf_all, sco_tf_all)
+        # 最终计算并返回一个loss供日志记录
+        obs_tf = tf.convert_to_tensor(observes, dtype=tf.float32)
+        act_tf = tf.convert_to_tensor(actions, dtype=tf.float32)
+        sco_tf = tf.convert_to_tensor(scores, dtype=tf.float32)
+        final_loss = self.compute_losses(obs_tf, act_tf, sco_tf)
         return final_loss.numpy()
 
     def save_model(self, policy_weights_path):
         """
-        保存当前策略网络
+        保存策略网络权重 (模仿 PPO 里的写法)
         """
-        # 让网络先跑一次 forward，确保 build 完成
-        dummy_obs = tf.zeros((1, self.obs_dim), dtype=tf.float32)
-        self.policy_network(dummy_obs)
+        dummy_obs = tf.zeros(shape=(1, self.obs_dim), dtype=tf.float32)
+        self.policy_network(dummy_obs)  # 先forward一次，触发build
         self.policy_network.save_weights(policy_weights_path)
 
     def load_model(self, policy_weights_path):
         """
-        加载策略网络
+        加载策略网络权重
         """
-        dummy_obs = tf.zeros((1, self.obs_dim), dtype=tf.float32)
-        self.policy_network(dummy_obs)  # 先 build 一下
+        dummy_obs = tf.zeros(shape=(1, self.obs_dim), dtype=tf.float32)
+        self.policy_network(dummy_obs)  # 先build
         self.policy_network.load_weights(policy_weights_path)
 
 
 
-
-
-
 # import numpy as np
-# from sklearn.utils import shuffle
 # import tensorflow as tf
-# from tensorflow.keras import layers, initializers, optimizers
+# from tensorflow.keras import layers, optimizers
+# from sklearn.utils import shuffle
 
+# # ==============================
+# # 迁移过来的 PolicyNetwork (仅用于 REINFORCE)
+# # ==============================
+# class PolicyNetwork(tf.keras.Model):
+#     def __init__(self, obs_dim, act_dim, hdim, max_std, seed=0):
+#         super().__init__()
+#         tf.random.set_seed(seed)
+#         np.random.seed(seed)
+
+#         # 和 PPOAgent 中类似的初始化方式
+#         self.hid1 = layers.Dense(hdim, activation='tanh',
+#                                  kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
+#                                  name='policy_h1')
+#         self.hid2 = layers.Dense(hdim, activation='tanh',
+#                                  kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
+#                                  name='policy_h2')
+#         self.mean_layer = layers.Dense(act_dim,
+#                                        kernel_initializer=tf.random_normal_initializer(stddev=0.01, seed=seed),
+#                                        name='mean')
+
+#         # logstd 用 sigmoid 加上一个缩放，类似 PPOAgent 中的写法
+#         # 使其可学习，但又不会无限大或负到崩溃
+#         self.logits_std = tf.Variable(
+#             initial_value=tf.random.normal(shape=(1,), stddev=0.01, seed=seed),
+#             trainable=True, name='logits_std'
+#         )
+#         self.max_std = max_std
+
+#     def call(self, obs):
+#         """
+#         前向传播：输出 (mean, std)
+#         obs: shape = [batch_size, obs_dim]
+#         """
+#         x = self.hid1(obs)
+#         x = self.hid2(x)
+#         mean = self.mean_layer(x)  # shape=[batch_size, act_dim]
+
+#         # std 范围受 sigmoid & max_std 限制
+#         std = self.max_std * tf.ones_like(mean) * tf.sigmoid(self.logits_std)  # shape=[1,]
+#         # 为了和 mean 形状匹配，这里做一个 broadcast , shape=[batch_size, act_dim]
+#         return mean, std
+
+
+# # ==============================
+# # REINFORCE Agent (迁移 PPO 写法，但核心不变)
+# # ==============================
 # class REINFORCEAgent(object):
 #     def __init__(self, obs_dim, n_act,
 #                  epochs=10, lr=3e-5, hdim=64, max_std=1.0,
@@ -214,94 +249,111 @@ class REINFORCEAgent(object):
 #         self.hdim = hdim
 #         self.max_std = max_std
 
-#         # 构建策略网络（相当于_ policy_nn部分）
-#         self.policy_model = self._build_policy_model()
+#         # ===== 类似 PPOAgent：建立一个 PolicyNetwork =====
+#         self.policy_network = PolicyNetwork(obs_dim=self.obs_dim,
+#                                             act_dim=self.n_act,
+#                                             hdim=self.hdim,
+#                                             max_std=self.max_std,
+#                                             seed=self.seed)
 
-#         # 定义logstd变量，与原逻辑一致
-#         self.logstd = tf.Variable(tf.zeros([1, self.n_act]), dtype=tf.float32, name="logstd")
+#         # ===== 优化器也使用 Adam =====
+#         self.optimizer = optimizers.Adam(learning_rate=self.lr)
 
-#         # 定义优化器
-#         # self.optimizer = optimizers.Adam(learning_rate=self.lr)
-#         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.lr)
+#     # def log_prob(self, act, mean, std):
+#     #     """
+#     #     计算高斯分布 N(mean, std^2) 的 log probability。
+#     #     act, mean, std 均为 shape=[batch_size, action_dim]。
+#     #     返回 shape=[batch_size]，对应每条样本的对数概率。
+        
+#     #     对多维度动作做独立高斯的假设，因此是各维度对数概率之和。
+#     #     """
+#     #     # shape: (batch_size, action_dim)
+#     #     var = tf.square(std)
+#     #     log_std = tf.math.log(std)
 
-#     def _build_policy_model(self):
-#         # 与原逻辑保持相同的网络结构和初始化参数
-#         initializer = initializers.RandomNormal(stddev=0.01, seed=self.seed)
-#         inputs = tf.keras.Input(shape=(self.obs_dim,))
-#         x = layers.Dense(self.hdim, activation='tanh', kernel_initializer=initializer, name="h1")(inputs)
-#         x = layers.Dense(self.hdim, activation='tanh', kernel_initializer=initializer, name="h2")(x)
-#         output = layers.Dense(self.n_act, activation='tanh', use_bias=True,
-#                               kernel_initializer=tf.keras.initializers.GlorotUniform(seed=self.seed),
-#                               name="output")(x)
-#         model = tf.keras.Model(inputs=inputs, outputs=output)
-#         return model
+#     #     # log(N(x; mean, std)) = -0.5 * sum( ((x-mean)/std)^2 ) - sum(log_std) - (D/2)*log(2π)
+#     #     # 这里跟 PPOAgent 一样省去常数 or 只做 axis=1 的 reduce_sum
+#     #     # 若要更严谨，需包含 (D/2)*log(2π)；对梯度无影响，这里可省略
+#     #     logp_per_dim = -0.5 * tf.square((act - mean) / std) - log_std
+#     #     logp = tf.reduce_sum(logp_per_dim, axis=1)
+#     #     return logp
+
+#     def log_prob(self, y, mu, sigma):
+#         # 计算给定均值和标准差的高斯分布的对数概率
+#         return tf.reduce_sum(-0.5 * tf.square((y - mu) / sigma) -
+#                              tf.math.log(sigma) - 0.5 * np.log(2.0 * np.pi), axis=1)
 
 #     @tf.function
 #     def _compute_loss(self, obs, act, score):
-#         # 按原逻辑计算loss:
-#         # self.action_normalized = (act_ph - output_placeholder) / tf.exp(self.logstd)
-#         # self.loss = -0.5 * tf.reduce_sum(tf.square(self.action_normalized), axis=1)
-        
-#         output = self.policy_model(obs)  # 相当于 self.output_placeholder
-#         action_normalized = (act - output) / tf.exp(self.logstd)
-#         # loss_per_sample = -0.5 * tf.reduce_sum(tf.square(action_normalized), axis=1)
-#         # 原代码最终返回 np.mean(loss) ，这里直接对loss求平均使其成为标量
-#         log_prob_per_sample = -0.5 * tf.reduce_sum(tf.square(action_normalized), axis=1) \
-#                               - tf.reduce_sum(self.logstd, axis=1)
-#         # REINFORCE cost = - mean( score * log_prob )
-#         loss_per_sample = - score * log_prob_per_sample
-        
+#         """
+#         REINFORCE loss:  - E[ score * log_pi(a|s) ]
+
+#         obs:    [batch_size, obs_dim]
+#         act:    [batch_size, act_dim]
+#         score:  [batch_size]  (或 [batch_size,1])
+#         """
+#         mean, std = self.policy_network(obs)
+#         logp = self.log_prob(act, mean, std)  # [batch_size]
+#         # 注意是 - score * logp
+#         # score 的形状如果是 [batch_size,1], 这里最好先 squeeze 一下
+#         score = tf.reshape(score, [-1])  # 确保是 [batch_size]
+#         loss_per_sample = - score * logp
 #         loss = tf.reduce_mean(loss_per_sample)
 #         return loss
 
-#         # # fake REINFORCE
-#         # output = self.policy_model(obs)  # 相当于原来的 self.output_placeholder
-#         # action_normalized = (act - output) / tf.exp(self.logstd)
-        
-#         # # 原来的损失：-0.5 * sum( (act - mean)^2 / std^2 ), 没有乘 score
-#         # loss_per_sample = -0.5 * tf.reduce_sum(tf.square(action_normalized), axis=1)
-        
-#         # # 对 batch 求均值，得到一个标量
-#         # loss = tf.reduce_mean(loss_per_sample)
-#         # return loss
-
 #     def get_action(self, obs):
-#         # 在原代码中: sampled_action = output_placeholder + exp(logstd)*tf.random_normal()
+#         """
+#         采样动作： mean + std * noise
+#         obs: shape=[obs_dim] or [1, obs_dim]
+#         返回 shape=[act_dim]
+#         """
 #         obs_tf = tf.convert_to_tensor(obs, dtype=tf.float32)
-#         output = self.policy_model(obs_tf)
-#         noise = tf.random.normal(tf.shape(output), seed=self.seed)
-#         sampled_action = output + tf.exp(self.logstd) * noise
-#         print(sampled_action)
-#         return sampled_action[0].numpy() * 0.1
+#         if len(obs_tf.shape) == 1:
+#             obs_tf = tf.expand_dims(obs_tf, axis=0)  # 变成 batch_size=1
+
+#         mean, std = self.policy_network(obs_tf)  # shape=[1, act_dim]
+#         noise = tf.random.normal(tf.shape(mean), seed=self.seed)
+#         sampled_action = std * noise + mean*0.01
+#         # print("std: ", std)
+#         # print("noise:", noise)
+#         # print("mean:" , mean)
+#         return sampled_action[0].numpy()
 
 #     def control(self, obs):
-#         # 计算max prob对应的动作(这里output是均值动作)
+        
 #         obs_tf = tf.convert_to_tensor(obs, dtype=tf.float32)
-#         output = self.policy_model(obs_tf)
-#         best_action = np.argmax(output.numpy(), axis=1)[0]
-#         return best_action
+#         if len(obs_tf.shape) == 1:
+#             obs_tf = tf.expand_dims(obs_tf, axis=0)
+
+#         mean, std = self.policy_network(obs_tf)
+#         return mean[0].numpy()
 
 #     def update(self, observes, actions, scores, batch_size=128):
+#         """
+#         REINFORCE 训练循环 (类似之前的写法)
+#         """
 #         num_batches = max(observes.shape[0] // batch_size, 1)
 #         batch_size = observes.shape[0] // num_batches
 
 #         for e in range(self.epochs):
+#             # 打乱数据
 #             observes, actions, scores = shuffle(observes, actions, scores, random_state=self.seed)
             
+#             # 分成小批量
 #             for j in range(num_batches):
 #                 start = j * batch_size
 #                 end = (j + 1) * batch_size
 
 #                 obs_batch = tf.convert_to_tensor(observes[start:end, :], dtype=tf.float32)
 #                 act_batch = tf.convert_to_tensor(actions[start:end], dtype=tf.float32)
-#                 score_batch = tf.convert_to_tensor(scores[start:end], dtype=tf.float32)
- 
-#                 with tf.GradientTape() as tape:
-#                     loss = self._compute_loss(obs_batch, act_batch, score_batch)
-#                 grads = tape.gradient(loss, self.policy_model.trainable_variables + [self.logstd])
-#                 self.optimizer.apply_gradients(zip(grads, self.policy_model.trainable_variables + [self.logstd]))
+#                 sco_batch = tf.convert_to_tensor(scores[start:end], dtype=tf.float32)
 
-#         # 最后计算整体loss
+#                 with tf.GradientTape() as tape:
+#                     loss = self._compute_loss(obs_batch, act_batch, sco_batch)
+#                 grads = tape.gradient(loss, self.policy_network.trainable_variables)
+#                 self.optimizer.apply_gradients(zip(grads, self.policy_network.trainable_variables))
+
+#         # 计算最终 loss 仅做返回或记录
 #         obs_tf_all = tf.convert_to_tensor(observes, dtype=tf.float32)
 #         act_tf_all = tf.convert_to_tensor(actions, dtype=tf.float32)
 #         sco_tf_all = tf.convert_to_tensor(scores, dtype=tf.float32)
@@ -309,22 +361,24 @@ class REINFORCEAgent(object):
 #         return final_loss.numpy()
 
 #     def save_model(self, policy_weights_path):
-#         # 保存当前策略网络的参数和logstd变量
+#         """
+#         保存当前策略网络
+#         """
+#         # 让网络先跑一次 forward，确保 build 完成
 #         dummy_obs = tf.zeros((1, self.obs_dim), dtype=tf.float32)
-#         self.policy_model(dummy_obs)  # 触发build
-#         self.policy_model.save_weights(policy_weights_path)
-
-#         # 同时保存logstd值到np文件
-#         np.save(policy_weights_path + '_logstd.npy', self.logstd.numpy())
+#         self.policy_network(dummy_obs)
+#         self.policy_network.save_weights(policy_weights_path)
 
 #     def load_model(self, policy_weights_path):
-#         # 加载策略网络参数和logstd变量
+#         """
+#         加载策略网络
+#         """
 #         dummy_obs = tf.zeros((1, self.obs_dim), dtype=tf.float32)
-#         self.policy_model(dummy_obs)  # 先build一下model
-#         self.policy_model.load_weights(policy_weights_path)
+#         self.policy_network(dummy_obs)  # 先 build 一下
+#         self.policy_network.load_weights(policy_weights_path)
 
-#         logstd_vals = np.load(policy_weights_path + '_logstd.npy')
-#         self.logstd.assign(logstd_vals)
+
+
 
 
 

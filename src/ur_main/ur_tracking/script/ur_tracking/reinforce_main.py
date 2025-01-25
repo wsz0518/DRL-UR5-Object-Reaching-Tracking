@@ -67,7 +67,7 @@ def build_train_set(trajectories):
     actions = np.concatenate([t['actions'] for t in trajectories])
     returns = np.concatenate([t['returns'] for t in trajectories])
 
-    return observes, actions , returns
+    return observes, actions, returns
 
 def compute_returns(trajectories, gamma=0.995): # Add value estimation for each trajectories
     for trajectory in trajectories:
@@ -79,36 +79,70 @@ def compute_returns(trajectories, gamma=0.995): # Add value estimation for each 
             returns[t] = g
         trajectory['returns'] = returns
 
-def plot_training_results(res_path, avg_loss_list, avg_return_list):
-    # 将 avg_return_list 内部的列表展开为单个列表
-    # avg_return_list 中保存的是每次更新append([np.sum(t['rewards']) for t in trajectories])
-    # 这里每次都是append一个列表，需先将其转化为均值等标量
-    avg_returns_scalar = [np.mean(r) for r in avg_return_list]
+def plot_training_results_old(res_path, avg_loss_list, avg_return_list):
+    """
+    将原先的 Loss 和 Return 绘制在同一个图的逻辑
+    改为在两个独立的图形上分别绘制，生成并展示/保存两个图。
+    """
 
-    # 创建一个图形和两个子图
-    fig, ax1 = plt.subplots()
+    # 首先将 avg_return_list 内部的列表展开为标量形式
+    avg_returns_scalar = [np.mean(r) for r in avg_return_list]
 
     # x 轴为更新次数
     x_data = range(len(avg_loss_list))
 
-    # 在左轴绘制平均LOSS
-    color = 'tab:red'
-    ax1.set_xlabel('Update Steps')
-    ax1.set_ylabel('Average Policy Loss', color=color)
-    ax1.plot(x_data, avg_loss_list, color=color, label='Policy Loss')
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    # 在同一张图中，但不同y轴上绘制平均回报
-    ax2 = ax1.twinx()  # 共享x轴
-    color = 'tab:blue'
-    ax2.set_ylabel('Average Return', color=color)
-    ax2.plot(x_data, avg_returns_scalar, color=color, label='Average Return')
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    fig.tight_layout()  # 调整子图间距
-    plt.title('Training Progress')
-    plt.savefig('{}.png'.format(res_path))
+    fig1, ax1 = plt.subplots()
+    ax1.plot(x_data, avg_loss_list)
+    ax1.set_xlabel('Updates')
+    ax1.set_ylabel('Average Policy Loss')
+    ax1.tick_params(axis='y')
+    ax1.set_title('Policy Loss over Training')
+    fig1.tight_layout()
+    fig1.savefig('{}_loss.png'.format(res_path))
     plt.show()
+
+    fig2, ax2 = plt.subplots()
+    ax2.plot(x_data, avg_returns_scalar)
+    ax2.set_xlabel('Updates')
+    ax2.set_ylabel('Average Return')
+    ax2.tick_params(axis='y')
+    ax2.set_title('Average Return over Training')
+    fig2.tight_layout()
+    fig2.savefig('{}_return.png'.format(res_path))
+    plt.show()
+
+def plot_training_results(
+    res_path,
+    avg_loss_list,    # 对应策略 Loss
+    avg_return_list   # 对应回报
+):
+    """
+    将原先的Loss和Return绘制方式改为类似PPO的多图风格。
+    这里只有两个指标 Policy Loss 和 Average Return。
+    """
+
+    # 将 avg_return_list 内部的列表转换成标量形式（若本身就是标量list可省略）
+    avg_returns_scalar = [np.mean(r) for r in avg_return_list]
+
+    # 1. Average Return
+    plt.figure(figsize=(8, 8))
+    plt.plot(avg_returns_scalar)
+    plt.title('Average Return over Training from REINFORCE')
+    plt.xlabel('Updates')
+    plt.ylabel('Average Return')
+    plt.tight_layout()
+    plt.savefig('{}_avg_return.png'.format(res_path))
+    plt.close()
+
+    # 2. Policy Loss
+    plt.figure(figsize=(8, 8))
+    plt.plot(avg_loss_list)
+    plt.title('Policy Loss over Training from REINFORCE')
+    plt.xlabel('Updates')
+    plt.ylabel('Policy Loss')
+    plt.tight_layout()
+    plt.savefig('{}_policy_loss.png'.format(res_path))
+    plt.close()
 
 
 def main():
@@ -121,16 +155,17 @@ def main():
     seed = 0
     obs_dim = env.observation_space.shape[0] # 15 # env.observation_space.shape[0]
     n_act = env.action_space.shape[0] # 6 #config: act_dim #env.action_space.n
-    agent = REINFORCEAgent(obs_dim, n_act, epochs=5, hdim=32, lr=3e-4,seed=seed)
+    # Original agent = REINFORCEAgent(obs_dim, n_act, epochs=5, hdim=32, lr=3e-4,seed=seed)
+    agent = REINFORCEAgent(obs_dim, n_act, epochs=10, hdim=16, lr=1e-5,seed=seed)
     np.random.seed(seed)
     # tf.set_random_seed(seed) # tf1
     tf.random.set_seed(seed) # tf2
     env.seed(seed=seed)
 
-    avg_return_list = deque(maxlen=1000)
-    avg_loss_list = deque(maxlen=1000)
+    avg_return_list = [] #deque(maxlen=1000)
+    avg_loss_list = [] #deque(maxlen=1000)
 
-    episode_size = 1 # Original 1
+    episode_size = 5#5 # Original 1
     batch_size = 16
     nupdates = 50 #100000
 

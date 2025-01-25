@@ -87,7 +87,7 @@ def create_brain(num_states, num_mid, num_actions, gamma, epsilon, lr):
 
                 '''original'''
                 action = np.argmax(q.cpu().detach().numpy(), axis=1)[0]
-                print(q)
+                # print(q)
                 ## random choice
                 if is_training and np.random.rand() < self.epsilon:
                     random_action = np.random.randint(self.num_actions)

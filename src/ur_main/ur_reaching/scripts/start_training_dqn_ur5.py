@@ -10,7 +10,7 @@ from utils import plot_results, obs_to_state
 
 
 if __name__ == '__main__':
-    # plot_results(mode='dqn', win=10, training=True, texts="")
+    # plot_results(mode='dqn', win=20, training=True, texts="")
     # exit()
 
     ## Init ROS node and create OpenAI_ROS Env
@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
     agent.saveQnet(saving=True)
     env.close()
-    plot_results(mode='dqn', win=5, training=True, texts="")
+    plot_results(mode='dqn', win=20, training=True, texts="")
 
 ''' some ideas'''
 # random initial pose

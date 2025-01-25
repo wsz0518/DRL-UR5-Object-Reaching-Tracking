@@ -30,8 +30,6 @@ def run_test(env, agent, episodes=10):
             success, in_test = info["success_rate"]
             if success is True:
                 success_times += 1
-            # if in_test is True:
-            #     total_times += 1 
             total_times += 1
 
         
@@ -55,8 +53,8 @@ def test():
     tester = PPOGAEAgent(obs_dim, n_act, epochs=10, hdim=16, policy_lr=3e-3, value_lr=1e-3, max_std=1.0,
                             clip_range=0.2, seed=seed)
     
-    tester.load_model(policy_weights_path='{}/models_ppo_gae/model_z01_01_old/trained_policy_network_weights.h5'.format(ws_path),
-                       value_weights_path='{}/models_ppo_gae/model_z01_01_old/trained_value_network_weights.h5'.format(ws_path))
+    tester.load_model(policy_weights_path='{}/models_ppo_gae/save_z03_01/trained_policy_network_weights.h5'.format(ws_path),
+                       value_weights_path='{}/models_ppo_gae/save_z03_01/trained_value_network_weights.h5'.format(ws_path))
     rewards, success_rates = run_test(env, tester)
     plot_test_results(rewards, mode='ppo_gae', texts="Success rates are: {}".format(success_rates))
 

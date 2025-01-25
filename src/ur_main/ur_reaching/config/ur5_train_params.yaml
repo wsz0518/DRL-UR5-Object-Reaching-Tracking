@@ -8,9 +8,22 @@ ur5: #namespace
 
   qlearn:
     alpha: 0.6  # Original 0.5 # Learning rate, q-values updated
-    gamma: 0.9  # Original 0.9 # discount factor, future rewards worth less
+    gamma: 0.7  # Original 0.9 # discount factor, future rewards worth less
     epsilon: 0.5 # Original 0.1
-    epsilon_discount: 0.99 # Original 0.999
+    #epsilon_discount: 0.99 # Original 0.999
+    
+    # balanced
+    # epsilon_discount: 0.997
+    #strong
+    epsilon_discount: 0.99
+    # weak
+    # epsilon_discount: 0.999
+    # new_strong 80/300
+    # epsilon_discount: 0.98
+    # new_weak 267/300
+    # epsilon_discount: 0.994
+
+    epsilon_boundary: 0.1 # 0.05
     nepisodes: 300 # Original 10000
     nsteps: 1000 # (max_iterations=? in ur5_position_task.yaml)
     round_format: '05' # '1f', '2f', '05' if here changed, must change position_delta (in ur5_position_task.yaml)
@@ -20,7 +33,18 @@ ur5: #namespace
     num_mid: 128 # Original 64 hidden layer width
     gamma: 0.7 # Original 0.7
     epsilon: 0.5 # Original 1.0
-    ed: 0.997 # Original 0.99
+
+    # Weak
+    ed: 0.999 # Original 0.99 
+    # Balanced
+    # ed: 0.997 # Original 0.99
+    # Strong
+    # ed: 0.99 # Original 0.99
+    # new_strong 80/300
+    # ed: 0.98
+    # new_weak 267/300
+    # ed: 0.994
+
     eb: 0.1 # Original 0.1
     lr: 0.001 # Original 0.001
     nepisodes: 300

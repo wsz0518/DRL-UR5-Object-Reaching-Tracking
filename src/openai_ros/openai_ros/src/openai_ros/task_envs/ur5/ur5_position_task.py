@@ -213,7 +213,7 @@ class UR5PositionEnv(ur5_env.UR5Env):
 
         self.curr_coord = self.get_gripper_coord()
 
-        if self.curr_coord[-1] < 0.03:
+        if self.curr_coord[-1] < 0.02:
             done = True
             self.current_iteration = 0
             self.non_movement = 0
@@ -231,22 +231,74 @@ class UR5PositionEnv(ur5_env.UR5Env):
         # print(self.curr_coord)
         return done
 
+    # def _compute_reward(self, observations, done, info, moved):
+
+    #     """
+    #     Gives more points for staying closer to the goal position.
+    #     A fixed reward of 100 is given when the robot achieves the
+    #     goal position.
+    #     :return:reward
+    #     """
+    #     # print(self.current_iteration)
+    #     if not moved and self.check_move:
+    #         reward = self.non_movement_penalty
+    #         self.current_iteration += 1
+    #         return reward
+        
+    #     curr_coord_dist = np.sqrt(np.sum((self.curr_coord - self.goal_coord)**2))
+        
+    #     score = 1 / curr_coord_dist
+    #     progress = self.prev_coord_dist - curr_coord_dist
+    #     if not done:
+    #         if progress > 0.0:
+    #             reward = score ## use progress as reward
+    #         else:
+    #             if self.curr_coord[-1] < 0.06:
+    #                 reward = -20
+    #             else:
+    #                 reward = -score # -curr_coord_dist * 10
+            
+    #         self.prev_coord_dist = np.copy(curr_coord_dist)
+    #         self.current_iteration += 1
+        
+    #     elif done and self.current_iteration == 0: # last but not reached
+    #         # If done due to be the last step of episode (we just reseted it in _is_done())
+    #         # then compute reward
+    #         if self.curr_coord[-1] < 0.03:
+    #             reward = -100
+    #         elif progress > 0.0:
+    #             reward = score ## use progress as reward
+    #         else:
+    #             reward = -score # -curr_coord_dist * 10
+            
+    #         # reward = score
+    #         self.prev_coord_dist = np.copy(self.init_coord_dist)
+    #         self.diff = np.inf
+
+    #     elif done and self.current_iteration > 0:
+    #         # If done at an iteration greater than 0, then it must has reached
+    #         reward = self.reached_goal_reward
+    #         self.goaled += 1
+    #         self.current_iteration = 0
+    #         self.curr_coord = None
+    #         self.prev_coord_dist = np.copy(self.init_coord_dist)
+    #         self.diff = np.inf
+    #     else:
+    #         rospy.logdebug("Unknown goal status => Reward?")
+    #         reward = 0
+    #         self.current_iteration = 0
+    #         self.curr_coord = None
+    #         self.prev_coord_dist = np.copy(self.init_coord_dist)
+    #         self.diff = np.inf
+        
+    #     rospy.logwarn("# Goal reached " + str(self.goaled) + " times.")
+    #     return reward
+
+    '''New reward function'''
     def _compute_reward(self, observations, done, info, moved):
 
-        """
-        Gives more points for staying closer to the goal position.
-        A fixed reward of 100 is given when the robot achieves the
-        goal position.
-        :return:reward
-        """
-        # print(self.current_iteration)
         if not moved and self.check_move:
             reward = self.non_movement_penalty
-            self.current_iteration += 1
-            return reward
-        
-        if self.curr_coord[-1] < 0.06:
-            reward = -20
             self.current_iteration += 1
             return reward
         
@@ -256,20 +308,27 @@ class UR5PositionEnv(ur5_env.UR5Env):
         progress = self.prev_coord_dist - curr_coord_dist
         if not done:
             if progress > 0.0:
-                reward = score ## use progress as reward
+                reward = score## use progress as reward
             else:
-                reward = -score # -curr_coord_dist * 10
-            # # for it goes too low
-            # if self.curr_coord[-1] < 0.06: # half Height of cube
-            #     reward = -10
-            
+                if self.curr_coord[-1] < 0.06:
+                    reward = -10
+                else:
+                    reward = -score * 1.5
+
             self.prev_coord_dist = np.copy(curr_coord_dist)
             self.current_iteration += 1
         
         elif done and self.current_iteration == 0: # last but not reached
             # If done due to be the last step of episode (we just reseted it in _is_done())
             # then compute reward
-            reward = score
+            if self.curr_coord[-1] < 0.02:
+                reward = -20
+            elif progress > 0.0:
+                reward = score ## use progress as reward
+            else:
+                reward = -score * 1.5 # -curr_coord_dist * 10
+            
+            # reward = score
             self.prev_coord_dist = np.copy(self.init_coord_dist)
             self.diff = np.inf
 

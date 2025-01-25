@@ -14,7 +14,7 @@ from utils import plot_results, save_Q_table, obs_to_state, save_Q_table_dict
 
 
 if __name__ == '__main__':
-    # plot_results(mode='qlearn', training=True, texts="")
+    # plot_results(mode='qlearn', win=20, training=True, texts="")
     # exit()
 
     rospy.init_node('ur5_qlearn', anonymous=True, log_level=rospy.WARN)
@@ -36,6 +36,7 @@ if __name__ == '__main__':
     Epsilon = rospy.get_param("/ur5/qlearn/epsilon")
     Gamma = rospy.get_param("/ur5/qlearn/gamma")
     epsilon_discount = rospy.get_param("/ur5/qlearn/epsilon_discount")
+    epsilon_boundary = rospy.get_param("/ur5/qlearn/epsilon_boundary")
     nepisodes = rospy.get_param("/ur5/qlearn/nepisodes")
     nsteps = rospy.get_param("/ur5/qlearn/nsteps")
     round_format = rospy.get_param("/ur5/qlearn/round_format")
@@ -53,7 +54,7 @@ if __name__ == '__main__':
         cumulated_reward = 0
         done = False
         info, readyToGrasp = {}, False
-        if qlearn.epsilon > 0.05: # # Original 0.05
+        if qlearn.epsilon > epsilon_boundary: # # Original 0.05
             qlearn.epsilon *= epsilon_discount
 
         # Initialize the environment and get first state of the robot
@@ -97,5 +98,5 @@ if __name__ == '__main__':
         pass
     env.close()
     print("xxxxxxxxxxxxxxxxxxxxx\nEND start_training_qlearn_ur5\nxxxxxxxxxxxxxxxxxxxxx")
-    plot_results(mode='qlearn', training=True, texts="")
+    plot_results(mode='qlearn', win=20, training=True, texts="")
     
